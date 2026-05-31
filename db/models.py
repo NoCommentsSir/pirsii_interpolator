@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Float, Integer, ForeignKey, TIMESTAMP, JSONB, VARCHAR, Boolean
+from sqlalchemy import Column, Float, Integer, ForeignKey, TIMESTAMP, JSON, VARCHAR, Boolean
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
@@ -21,7 +21,7 @@ class InputVideos(Base):
     bitrate = Column(Integer, nullable=True)
     processed_at = Column(TIMESTAMP, nullable=True)
     output_video_uri = Column(VARCHAR, nullable=True)
-    quality_metrics_summary = Column(JSONB, nullable=True)
+    quality_metrics_summary = Column(JSON, nullable=True)
 
     metrics = relationship("OnlineMetrics", back_populates="video", passive_deletes=True)
 

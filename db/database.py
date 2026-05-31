@@ -50,6 +50,7 @@ pg_link = URL.create(
 redis_client = redis.Redis(
     host=os.getenv("REDIS_HOST", "redis_db"), 
     port=int(os.getenv("REDIS_PORT", "6379")), 
+    password=os.getenv("REDIS_PASSWORD", None),
     db=0
 )
 

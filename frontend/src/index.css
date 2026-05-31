@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+@layer base {
+    body {
+        @apply min-h-screen bg-slate-950 text-slate-100 overflow-x-hidden;
+    }
+}

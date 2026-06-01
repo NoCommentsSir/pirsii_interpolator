@@ -20,6 +20,13 @@ from .services import (
     VideoValidationError
 )
 
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
+)
+
 load_dotenv()
 MINIO_BUCKET_NAME = os.getenv("MINIO_BUCKET_NAME", "videos")
 
@@ -70,19 +77,20 @@ def _to_video_response(video) -> VideoResponse:
     status_code=status.HTTP_201_CREATED,
 )
 def insert_video(
-    file: Annotated[UploadFile, File(...)],
+    video: Annotated[UploadFile, File(...)],
     db: Session = Depends(get_db),
     minio: Minio = Depends(get_minio_client),
     redis_client = Depends(get_redis_client)
 ):
-    file_bytes = _read_upload_bytes(file)
+    logging.info("Received request to insert video. Filename: %s, Content-Type: %s", video.filename, video.content_type)
+    file_bytes = _read_upload_bytes(video)
     try:
-        video = create_video(
+        video_obj = create_video(
             db,
             minio,
             MINIO_BUCKET_NAME,
             file_bytes=file_bytes,
-            name=file.filename,
+            name=video.filename,
         )
     except VideoValidationError as exc:
         raise HTTPException(
@@ -99,8 +107,8 @@ def insert_video(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),
         ) from exc
-    create_redis_task(redis_client, video.video_id)
-    return _to_video_response(video)
+    create_redis_task(redis_client, video_obj.video_id)
+    return _to_video_response(video_obj)
 
 @api.get(
     "/api/videos/{video_id}",

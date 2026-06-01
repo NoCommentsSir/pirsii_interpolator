@@ -17,9 +17,10 @@ CREATE TABLE IF NOT EXISTS  video_interpolation.input_videos(
     processed_at TIMESTAMP NULL,
     output_video_uri VARCHAR NULL,
     quality_metrics_summary JSONB NULL,
+    coef INT NOT NULL,
 
-    CONSTRAINT chk_file_size_mb CHECK (file_size_mb < 50),
-    CONSTRAINT chk_duration_sec CHECK (duration_sec < 20)
+    CONSTRAINT chk_file_size_mb CHECK (file_size_mb < 10),
+    CONSTRAINT chk_duration_sec CHECK (duration_sec < 15)
 );
 
 CREATE TABLE IF NOT EXISTS  video_interpolation.online_metrics(

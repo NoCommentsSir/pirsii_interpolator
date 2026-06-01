@@ -22,6 +22,7 @@ class InputVideos(Base):
     processed_at = Column(TIMESTAMP, nullable=True)
     output_video_uri = Column(VARCHAR, nullable=True)
     quality_metrics_summary = Column(JSON, nullable=True)
+    coef = Column(Integer, nullable=False)
 
     metrics = relationship("OnlineMetrics", back_populates="video", passive_deletes=True)
 

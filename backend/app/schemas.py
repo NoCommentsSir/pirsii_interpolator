@@ -8,3 +8,4 @@ class VideoResponse(BaseModel):
     validation_status: str
     queue_status: str
     output_video_uri: str
+    video_installing_uri: str

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import io
 import json
@@ -10,15 +11,20 @@ from moviepy import VideoFileClip
 from minio import Minio
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
+from dotenv import load_dotenv
 
 from db.models import InputVideos, OnlineMetrics
 from redis import Redis
+from backend.worker.worker import process_video
+import rq
 
-MAX_FILE_SIZE_MB = 50
+load_dotenv()
+
+MAX_FILE_SIZE_MB = 10
 MAX_DURATION_SECONDS = 15
-SUPPORTED_AUDIO_EXTENSIONS = {".wav"}
 IGNORED_STORAGE_DELETE_ERRORS = {"NoSuchBucket", "NoSuchKey", "NoSuchObject", "NoSuchVersion"}
-
+REDIS_TOPIC = os.getenv("REDIS_TOPIC", "interpolation_tasks")
+REDIS_QUEUE_NAME = os.getenv("REDIS_QUEUE_NAME", "interpolation_tasks")
 
 class VideoServiceError(Exception):
     """Base exception for video service failures."""
@@ -96,7 +102,7 @@ def _parse_video_bytes(file_bytes: bytes, filename: str) -> ParsedVideo:
         raise VideoValidationError(f"Uploaded file has an invalid frame rate. {fps} fps found.")
 
     if file_size_mb > MAX_FILE_SIZE_MB:
-        raise VideoValidationError(f"Uploaded file exceeds the maximum allowed size of 50 MB. {file_size_mb} MB found.")
+        raise VideoValidationError(f"Uploaded file exceeds the maximum allowed size of {MAX_FILE_SIZE_MB} MB. {file_size_mb} MB found.")
 
     if duration_sec <= 0 or duration_sec > MAX_DURATION_SECONDS:
         raise VideoValidationError(f"Uploaded file has an invalid duration. {duration_sec} seconds found.")
@@ -127,7 +133,8 @@ def create_video(
     minio: Minio,
     bucket_name: str,
     file_bytes: bytes,
-    name: str
+    name: str,
+    coef: int
 ) -> InputVideos:
     parsed_video = _parse_video_bytes(file_bytes, name)
     ensure_bucket_exists(minio, bucket_name)
@@ -148,7 +155,7 @@ def create_video(
         video = InputVideos(
             uploaded_at=datetime.now(timezone.utc),
             staged_video_uri=f"{bucket_name}/{minio_key}",
-            validation_status="pending",
+            validation_status="valid",
             validation_error_code=None,
             queue_status="pending",
             duration_sec=int(parsed_video.duration_sec),
@@ -161,6 +168,7 @@ def create_video(
             processed_at=None,
             output_video_uri=None,
             quality_metrics_summary=None,
+            coef=coef
         )
         db.add(video)
         db.flush()
@@ -178,8 +186,8 @@ def create_redis_task(
     timeout_seconds: int = 300
 ):
     try:
-        task_id = f"added_video:{video_id}"
-        redis_client.setex(task_id, timeout_seconds, "pending")
+        queue = rq.Queue("interpolation_tasks", connection=redis_client)
+        queue.enqueue(process_video, video_id)
     except Exception as exc:
         raise VideoServiceError("Failed to create processing task in Redis.") from exc
 

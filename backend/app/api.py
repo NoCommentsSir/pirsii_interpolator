@@ -7,6 +7,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from fastapi.middleware.cors import CORSMiddleware
 from minio import Minio
 from sqlalchemy.orm import Session
+from datetime import timedelta
 
 from db.database import get_db, get_minio_client, get_redis_client
 from .schemas import VideoResponse
@@ -62,13 +63,19 @@ def _read_upload_bytes(file: UploadFile) -> bytes:
             detail="Failed to read the uploaded file.",
         ) from exc
 
-def _to_video_response(video) -> VideoResponse:
+def _to_video_response(video, minio_client: Minio) -> VideoResponse:
+    if video.output_video_uri:
+        bucket, object_name = str(video.output_video_uri).split("/", 1)
+    else:
+        bucket, object_name = str(video.staged_video_uri).split("/", 1)
     return VideoResponse(
         video_id=video.video_id,
         staged_video_uri=video.staged_video_uri,
         validation_status=video.validation_status,
         queue_status=video.queue_status,
         output_video_uri=str(video.output_video_uri),
+        video_installing_uri=minio_client.presigned_get_object(MINIO_BUCKET_NAME, object_name, expires=timedelta(seconds=3600))
+        # TODO - сделать ссылку на скачивание
     )
 
 @api.post(
@@ -78,6 +85,7 @@ def _to_video_response(video) -> VideoResponse:
 )
 def insert_video(
     video: Annotated[UploadFile, File(...)],
+    coef: Annotated[int, Form(..., gt=0.0, description="Коэффициент интерполяции, целое число больше 0")],
     db: Session = Depends(get_db),
     minio: Minio = Depends(get_minio_client),
     redis_client = Depends(get_redis_client)
@@ -91,6 +99,7 @@ def insert_video(
             MINIO_BUCKET_NAME,
             file_bytes=file_bytes,
             name=video.filename,
+            coef=coef
         )
     except VideoValidationError as exc:
         raise HTTPException(
@@ -108,7 +117,7 @@ def insert_video(
             detail=str(exc),
         ) from exc
     create_redis_task(redis_client, video_obj.video_id)
-    return _to_video_response(video_obj)
+    return _to_video_response(video_obj, minio)
 
 @api.get(
     "/api/videos/{video_id}",
@@ -117,7 +126,8 @@ def insert_video(
 )
 def get_video(
     video_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    minio_client: Minio = Depends(get_minio_client)
 ):
     video = get_video_by_id(db, video_id)
     if not video:
@@ -125,4 +135,4 @@ def get_video(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Video not found.",
         )
-    return _to_video_response(video)
+    return _to_video_response(video, minio_client)

@@ -42,3 +42,13 @@ docker compose logs backend
 ```bash
 docker compose exec backend python -m backend.worker.worker
 ```
+
+---
+
+### Deploy
+```bash
+git clone https://github.com/NoCommentsSir/pirsii_interpolator.git
+cd pirsii_interpolator
+cp .env.example .env
+docker compose up -d --build
+```

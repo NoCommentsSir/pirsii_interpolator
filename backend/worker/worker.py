@@ -27,8 +27,11 @@ def processor(video_obj: InputVideos, minio_client) -> str:
         minio_uri = video_obj.staged_video_uri
         minio_key = minio_uri.split("/", 1)[1]
         video_name = minio_key.split("/", 1)[1]
+        logger.info(f"Processing video ID {video_obj.video_id} with interpolation factor {video_obj.coef}")
+        interpolation_factor = video_obj.coef
         input_file = minio_client.get_object(BUCKET_NAME, minio_key)
-        output_file = input_file.read()
+        output_file = input_file.read() # ОЧЕВИДНО МЕНЯЕМ, ДОЛЖЕН ВЫЗЫВАТЬСЯ СЕВРИС МИНИО!
+        logger.info(f"Video ID {video_obj.video_id} read from MinIO, size: {len(output_file)} bytes")
         minio_client.put_object(
             bucket_name=BUCKET_NAME,
             object_name=f'output/{video_name}.mp4',
@@ -40,34 +43,7 @@ def processor(video_obj: InputVideos, minio_client) -> str:
     except Exception as e:
         print(f"Error processing video ID {video_obj.video_id}: {str(e)}")
         return None
-
-# def video_processing():
-#     pubsub = redis_client.pubsub()
-#     pubsub.subscribe(REDIS_TOPIC)
-
-#     for message in pubsub.listen():
-#         if message['type'] == 'message':
-#             minio_client = get_minio_client()
-#             db = SessionLocal()
-#             try:
-#                 task_data = message['data']
-#                 print(task_data)
-#                 video_id = int(task_data.decode('utf-8').split(":")[1])
-#                 video_obj = db.query(InputVideos).filter(InputVideos.video_id == video_id).first()
-#                 if video_obj and video_obj.queue_status == "pending":
-#                     video_obj.queue_status = "processing"
-#                     db.commit()
-#                     result = processor(video_obj, minio_client)
-#                     if result:
-#                         video_obj.processed_at = datetime.now(timezone.utc)
-#                         video_obj.output_video_uri = f"{BUCKET_NAME}/{result}"
-#                         video_obj.queue_status = "completed"
-#                     else:
-#                         video_obj.queue_status = "failed"
-#                     db.commit()
-#             finally:
-#                 db.close()
-
+    
 def process_video(video_id: int):
     minio_client = get_minio_client()
     db = SessionLocal()

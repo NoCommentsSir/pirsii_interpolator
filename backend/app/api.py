@@ -66,16 +66,16 @@ def _read_upload_bytes(file: UploadFile) -> bytes:
 def _to_video_response(video, minio_client: Minio) -> VideoResponse:
     if video.output_video_uri:
         bucket, object_name = str(video.output_video_uri).split("/", 1)
+        uri = minio_client.presigned_get_object(MINIO_BUCKET_NAME, object_name, expires=timedelta(seconds=3600))
     else:
-        bucket, object_name = str(video.staged_video_uri).split("/", 1)
+        uri = ''
     return VideoResponse(
         video_id=video.video_id,
         staged_video_uri=video.staged_video_uri,
         validation_status=video.validation_status,
         queue_status=video.queue_status,
         output_video_uri=str(video.output_video_uri),
-        video_installing_uri=minio_client.presigned_get_object(MINIO_BUCKET_NAME, object_name, expires=timedelta(seconds=3600))
-        # TODO - сделать ссылку на скачивание
+        video_installing_uri=uri
     )
 
 @api.post(

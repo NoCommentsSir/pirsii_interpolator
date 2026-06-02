@@ -130,6 +130,22 @@ services:
     ports:
       - ${BACKEND_PORT:-8000}:8000
 
+  worker:
+    build:
+      context: .
+      dockerfile: backend/worker/Dockerfile
+    env_file:
+      - .env
+    restart: unless-stopped
+    depends_on:
+      redis-db:
+        condition: service_healthy
+      pg-db:
+        condition: service_healthy
+      minio-db:
+        condition: service_healthy
+    command: ["python", "-m", "backend.worker.worker"]
+
 volumes:
   pg_data:
   minio_data:

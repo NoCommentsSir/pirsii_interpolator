@@ -18,11 +18,11 @@ dotenv.load_dotenv()
 MINIO_ROOT_USER = os.getenv("MINIO_ROOT_USER", "admin")
 MINIO_ROOT_PASSWORD = os.getenv("MINIO_ROOT_PASSWORD", "password")
 MINIO_PORT = os.getenv("MINIO_API_PORT", "9000")
-MINIO_HOST = os.getenv("MINIO_HOST", "minio_db")
+MINIO_HOST = os.getenv("MINIO_HOST", "minio-db")
 POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "password")
 POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
-POSTGRES_HOST = os.getenv("POSTGRES_HOST", "pg_db")
+POSTGRES_HOST = os.getenv("POSTGRES_HOST", "pg-db")
 POSTGRES_DB = os.getenv("POSTGRES_DB", "video_interpolation")
 MINIO_BUCKET_NAME = os.getenv("MINIO_BUCKET_NAME", "videos")
 
@@ -48,7 +48,7 @@ pg_link = URL.create(
 )
 
 redis_client = redis.Redis(
-    host=os.getenv("REDIS_HOST", "redis_db"), 
+    host=os.getenv("REDIS_HOST", "redis-db"),
     port=int(os.getenv("REDIS_PORT", "6379")), 
     password=os.getenv("REDIS_PASSWORD", None),
     db=0

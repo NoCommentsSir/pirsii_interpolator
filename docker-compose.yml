@@ -2,9 +2,9 @@ version: '3.8'
 
 services:
 
-  redis_db:
+  redis-db:
     image: redis:latest
-    container_name: redis_db
+    container_name: redis-db
     restart: unless-stopped
     volumes:
       - redis_data:/data
@@ -29,9 +29,9 @@ services:
         timeout: 10s
         retries: 5
         start_period: 80s
-  pg_db:
+  pg-db:
     image: postgres:17
-    container_name: pg_db
+    container_name: pg-db
     restart: always
     environment:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -50,9 +50,9 @@ services:
         retries: 5
         start_period: 80s
 
-  minio_db:
+  minio-db:
     image: minio/minio:latest
-    container_name: minio_db
+    container_name: minio-db
     restart: always
     command: server /data --console-address ":9001"
     ports:

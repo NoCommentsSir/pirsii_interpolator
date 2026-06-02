@@ -1,13 +1,17 @@
-import os, io
-from dotenv import load_dotenv
+import io
+import os
+import tempfile
 import logging
 
+from dotenv import load_dotenv
 from db.database import redis_client, SessionLocal, get_minio_client
 from sqlalchemy.orm import Session
 from db.models import InputVideos
 from datetime import datetime, timezone
 import rq
 from rq.worker import Worker
+
+from .rife_client import call_rife_inference
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,16 +34,28 @@ def processor(video_obj: InputVideos, minio_client) -> str:
         logger.info(f"Processing video ID {video_obj.video_id} with interpolation factor {video_obj.coef}")
         interpolation_factor = video_obj.coef
         input_file = minio_client.get_object(BUCKET_NAME, minio_key)
-        output_file = input_file.read() # ОЧЕВИДНО МЕНЯЕМ, ДОЛЖЕН ВЫЗЫВАТЬСЯ СЕВРИС МИНИО!
-        logger.info(f"Video ID {video_obj.video_id} read from MinIO, size: {len(output_file)} bytes")
-        minio_client.put_object(
-            bucket_name=BUCKET_NAME,
-            object_name=f'output/{video_name}.mp4',
-            data=io.BytesIO(output_file),
-            length=len(output_file),
-            content_type="video/mp4",
-        )
-        return f'output/{video_name}.mp4'
+        
+        logger.info(f"Video ID {video_obj.video_id} read from MinIO and will be sent to BentoML")
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            input_path = os.path.join(tmp_dir, video_name)
+            output_path = os.path.join(tmp_dir, f"{video_name}.mp4")
+
+            with open(input_path, "wb") as f:
+                f.write(input_file.read())
+
+            call_rife_inference(input_path, output_path, interpolation_factor)
+
+            with open(output_path, "rb") as out_file:
+                result_key = f"output/{video_name}.mp4"
+                minio_client.put_object(
+                    bucket_name=BUCKET_NAME,
+                    object_name=result_key,
+                    data=out_file,
+                    length=os.path.getsize(output_path),
+                    content_type="video/mp4",
+                )
+
+        return result_key
     except Exception as e:
         print(f"Error processing video ID {video_obj.video_id}: {str(e)}")
         return None

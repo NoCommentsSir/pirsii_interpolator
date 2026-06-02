@@ -8,24 +8,61 @@ function delay(ms) {
 export async function uploadVideoFile(file) {
     const formData = new FormData();
     formData.append("video", file);
+    formData.append("coef", "2");
 
     const response = await fetch(API_URL, {
         method: "POST",
         body: formData,
     });
 
+    const text = await response.text();
+    let payload;
+    try {
+        payload = JSON.parse(text);
+    } catch {
+        payload = text;
+    }
+
     if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || "Не удалось отправить видео");
+        throw new Error(String(payload) || response.statusText);
     }
 
+    return payload;
+}
+
+/**
+ * insertVideo - POSTs a video file to the backend `/api/videos` endpoint
+ * and returns the parsed JSON response (VideoResponse) or throws an Error
+ * with the backend `detail` if present.
+ */
+export async function insertVideo(file) {
+    const formData = new FormData();
+    formData.append("video", file);
+    formData.append("coef", "1");
+
+    const response = await fetch(API_URL, { method: "POST", body: formData });
+
+    // Try to parse JSON body when available
     const contentType = response.headers.get("content-type") || "";
+    const isJson = contentType.includes("application/json");
 
-    if (contentType.includes("application/json")) {
-        return response.json();
+    let payload = null;
+    if (isJson) {
+        try {
+            payload = await response.json();
+        } catch (e) {
+            // ignore parse errors
+            payload = null;
+        }
+    } else {
+        payload = await response.text();
     }
 
-    return response.text();
+    if (!response.ok) {
+        throw new Error(String(payload) || response.statusText);
+    }
+
+    return payload;
 }
 
 export async function pollVideoJob({
@@ -42,9 +79,8 @@ export async function pollVideoJob({
         });
 
         if (!response.ok) {
-            const errorText = await response.text();
             throw new Error(
-                errorText || "Не удалось получить статус обработки",
+                response.statusText || "Не удалось получить статус обработки",
             );
         }
 

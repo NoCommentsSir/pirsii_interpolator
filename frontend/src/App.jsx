@@ -16,6 +16,7 @@ function App() {
     const [statusMessage, setStatusMessage] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [downloadUrl, setDownloadUrl] = useState("");
+    const [serverResponse, setServerResponse] = useState(null);
 
     useEffect(() => {
         return () => {
@@ -141,41 +142,38 @@ function App() {
 
         try {
             const uploadResult = await uploadVideoFile(selectedFile.file);
-            const jobId = uploadResult?.jobId || uploadResult?.id;
-            const statusUrl = uploadResult?.statusUrl;
-            const initialDownloadUrl = uploadResult?.downloadUrl;
+            setServerResponse(uploadResult);
+            console.log("Upload result:", uploadResult);
 
-            if (initialDownloadUrl) {
-                setDownloadUrl(initialDownloadUrl);
-                setStatusMessage(`Файл ${selectedFile.file.name} уже готов.`);
+            const videoId = uploadResult?.video_id;
+            const queueStatus = uploadResult?.queue_status;
+            const stageVideoUri = uploadResult?.stage_video_uri;
+            const outputVideoUri = uploadResult?.output_video_uri;
+            const videoInstallingUri = uploadResult?.video_installing_uri;
+
+            if (videoInstallingUri == "None") {
+                setStatusMessage(
+                    "Видео принято. Обработка обычно занимает несколько минут.",
+                );
+                return;
+                // const jobResult = await pollVideoJob({
+                //     jobId,
+                //     statusUrl,
+                // });
+                // const finalDownloadUrl = jobResult?.downloadUrl || jobResult?.url;
+                // if (!finalDownloadUrl) {
+                //     throw new Error(
+                //         "Видео обработано, но ссылка на скачивание не пришла.",
+                //     );
+                // }
+                // setDownloadUrl(finalDownloadUrl);
+            } else {
+                setDownloadUrl(outputVideoUri);
+                setStatusMessage(
+                    "Видео уже обработано. Можно скачать готовый файл.",
+                );
                 return;
             }
-
-            if (!jobId && !statusUrl) {
-                throw new Error(
-                    "Сервер не вернул идентификатор задачи для polling.",
-                );
-            }
-
-            setStatusMessage(
-                "Видео принято. Обработка занимает 1-2 минуты или дольше.",
-            );
-
-            const jobResult = await pollVideoJob({
-                jobId,
-                statusUrl,
-            });
-
-            const finalDownloadUrl = jobResult?.downloadUrl || jobResult?.url;
-
-            if (!finalDownloadUrl) {
-                throw new Error(
-                    "Видео обработано, но ссылка на скачивание не пришла.",
-                );
-            }
-
-            setDownloadUrl(finalDownloadUrl);
-            setStatusMessage("Видео обработано. Можно скачать готовый файл.");
         } catch (error) {
             setValidationMessage(
                 error instanceof Error
@@ -252,7 +250,7 @@ function App() {
                     />
 
                     <div
-                        className={`flex min-h-[320px] cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-6 py-8 text-center transition sm:px-10 ${
+                        className={`flex min-h-80 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-6 py-8 text-center transition sm:px-10 ${
                             dragActive
                                 ? "border-slate-500 bg-slate-950"
                                 : "border-slate-700 bg-slate-950"
@@ -334,6 +332,39 @@ function App() {
                         </p>
                     ) : null}
 
+                    {serverResponse ? (
+                        <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-slate-200">
+                            <p className="font-medium text-slate-100">
+                                Server response:
+                            </p>
+                            <pre className="whitespace-pre-wrap text-xs text-slate-300 mt-2">
+                                {JSON.stringify(serverResponse, null, 2)}
+                            </pre>
+                            <div className="mt-2 text-xs text-slate-400">
+                                <div>
+                                    video_id:{" "}
+                                    {String(serverResponse.video_id ?? "-")}
+                                </div>
+                                <div>
+                                    staged_video_uri:{" "}
+                                    {serverResponse.staged_video_uri ?? "-"}
+                                </div>
+                                <div>
+                                    validation_status:{" "}
+                                    {serverResponse.validation_status ?? "-"}
+                                </div>
+                                <div>
+                                    queue_status:{" "}
+                                    {serverResponse.queue_status ?? "-"}
+                                </div>
+                                <div>
+                                    output_video_uri:{" "}
+                                    {serverResponse.output_video_uri ?? "-"}
+                                </div>
+                            </div>
+                        </div>
+                    ) : null}
+
                     {downloadUrl ? (
                         <a
                             href={downloadUrl}
@@ -345,9 +376,9 @@ function App() {
                     ) : null}
 
                     {selectedFile ? (
-                        <div className="mt-4 overflow-hidden rounded-xl border border-slate-800 bg-slate-950 p-3">
+                        <div className="mt-4 overflow-hidden rounded-xl border border-slate-800 bg-slate-950 p-3 flex justify-center">
                             <video
-                                className="block w-full rounded-lg bg-black"
+                                className="w-1/2 rounded-lg bg-black"
                                 src={selectedFile.previewUrl}
                                 controls
                             />

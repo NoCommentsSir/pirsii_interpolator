@@ -46,6 +46,12 @@ def processor(
             video_obj.coef,
             output_playback_mode,
         )
+        logger.info(
+            "Processing video ID %s with interpolation factor %s and playback mode %s",
+            video_obj.video_id,
+            video_obj.coef,
+            output_playback_mode,
+        )
         interpolation_factor = video_obj.coef
 
         logger.info(f"Video ID {video_obj.video_id} read from MinIO and will be sent to BentoML")
@@ -103,6 +109,7 @@ def processor(
         return None
     
 def process_video(video_id: int, output_playback_mode: str = "real_time"):
+def process_video(video_id: int, output_playback_mode: str = "real_time"):
     minio_client = get_minio_client()
     db = SessionLocal()
     try:
@@ -110,6 +117,7 @@ def process_video(video_id: int, output_playback_mode: str = "real_time"):
         if video_obj and video_obj.queue_status == "pending":
             video_obj.queue_status = "processing"
             db.commit()
+            result = processor(video_obj, minio_client, output_playback_mode)
             result = processor(video_obj, minio_client, output_playback_mode)
             if result:
                 video_obj.processed_at = datetime.now(timezone.utc)

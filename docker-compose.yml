@@ -103,9 +103,7 @@ services:
 
 
   frontend:
-      build:
-        context: ./frontend
-        dockerfile: Dockerfile
+      image: ghcr.io/nocommentssir/pyinterpol-frontend:latest 
       container_name: frontend
       restart: unless-stopped
       ports:
@@ -113,9 +111,7 @@ services:
 
 
   backend:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
+    image: ghcr.io/nocommentssir/pyinterpol-backend:latest 
     container_name: backend
     env_file:
       - .env
@@ -131,9 +127,7 @@ services:
       - ${BACKEND_PORT:-8000}:8000
 
   worker:
-    build:
-      context: .
-      dockerfile: backend/worker/Dockerfile
+    image: ghcr.io/nocommentssir/pyinterpol-worker:latest
     env_file:
       - .env
     restart: unless-stopped

@@ -116,6 +116,15 @@ curl -F "video=@sample.mp4" -F "coef=3" http://localhost:8000/api/videos
 curl -F "video=@sample.mp4" -F "coef=4" http://localhost:8000/api/videos
 ```
 
+The optional `output_playback_mode` field controls the future RIFE/BentoML playback mode. It is queue-only for now and is not stored in PostgreSQL.
+
+```bash
+curl -F "video=@sample.mp4" -F "coef=2" -F "output_playback_mode=real_time" http://localhost:8000/api/videos
+curl -F "video=@sample.mp4" -F "coef=2" -F "output_playback_mode=slow_motion" http://localhost:8000/api/videos
+```
+
+If the field is omitted, the backend defaults to `real_time`.
+
 The response should include `video_id`, `validation_status`, `queue_status`, and `null` output/download fields before completion:
 
 ```json
@@ -146,17 +155,27 @@ curl -F "video=@sample.mp4" -F "coef=5" http://localhost:8000/api/videos
 
 Expected result: 4xx response with a message that coefficient must be `2`, `3`, or `4`.
 
+Invalid playback modes should also be rejected:
+
+```bash
+curl -F "video=@sample.mp4" -F "coef=2" -F "output_playback_mode=bad" http://localhost:8000/api/videos
+```
+
+Expected result: 4xx response with a message that playback mode must be `real_time` or `slow_motion`.
+
 ## Browser Smoke Test
 
 1. Open `http://localhost:8080` or the Vite dev URL.
 2. Select or drag a valid short video.
 3. Confirm the interpolation factor defaults to `x2`.
-4. Change the factor to `x2`, `x3`, or `x4`.
-5. Submit the video.
-6. Watch the human-readable status progress from accepted to processing.
-7. Wait for mock inference to complete.
-8. Confirm a download link appears only after completion.
-9. Confirm there is no raw `Server response` panel.
+4. Confirm `Режим проигрывания` defaults to `обычный`.
+5. Change the factor to `x2`, `x3`, or `x4`.
+6. Change playback mode between `обычный` and `slow motion`.
+7. Submit the video.
+8. Watch the human-readable status progress from accepted to processing.
+9. Wait for mock inference to complete.
+10. Confirm a download link appears only after completion.
+11. Confirm there is no raw `Server response` panel.
 
 For the failure path:
 

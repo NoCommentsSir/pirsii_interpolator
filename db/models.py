@@ -29,16 +29,17 @@ class InputVideos(Base):
 class OnlineMetrics(Base):
     __tablename__ = "online_metrics"
     __table_args__ = {"schema": "video_interpolation"}
-    metric_id = Column(Integer, primary_key=True, autoincrement=True) 
-    video_id = Column(Integer, ForeignKey("video_interpolation.input_videos.video_id")) 
+    metric_id = Column(Integer, primary_key=True, autoincrement=True)
+    video_id = Column(Integer, ForeignKey("video_interpolation.input_videos.video_id"), nullable=False)
     model_version = Column(VARCHAR, nullable=False)
-    num_eval_triplets = Column(Integer, nullable=False)
-    sampling_policy = Column(VARCHAR, nullable=False)
+    interpolation_factor = Column(Integer, nullable=False)
+    pairs_processed = Column(Integer, nullable=True)
+    frames_wrtitten = Column(Integer, nullable=True)
     clip_score_psnr = Column(Float, nullable=True)
     clip_score_ssim = Column(Float, nullable=True)
-    clip_score_lpips = Column(Float, nullable=True)
+    quality_frames_wrtitten = Column(Integer, nullable=True)
     bad_triplet_count = Column(Integer, nullable=True)
     is_bad_request = Column(Boolean, nullable=True)
-    created_at = Column(TIMESTAMP, nullable=True)
+    created_at = Column(TIMESTAMP, nullable=False)
 
     video = relationship("InputVideos", back_populates="metrics")

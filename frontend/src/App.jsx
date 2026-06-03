@@ -8,11 +8,24 @@ const UPLOAD_LIMITS = {
     maxShortSide: 1080,
 };
 const INTERPOLATION_FACTORS = [2, 3, 4];
+const PLAYBACK_MODES = [
+    {
+        value: "real_time",
+        label: "обычный",
+        description: "Увеличивает частоту кадров, сохраняя длительность видео.",
+    },
+    {
+        value: "slow_motion",
+        label: "slow motion",
+        description: "Сохраняет частоту кадров, увеличивая длительность видео.",
+    },
+];
 
 function App() {
     const inputRef = useRef(null);
     const [selectedFile, setSelectedFile] = useState(null);
     const [interpolationFactor, setInterpolationFactor] = useState(2);
+    const [outputPlaybackMode, setOutputPlaybackMode] = useState("real_time");
     const [dragActive, setDragActive] = useState(false);
     const [validationMessage, setValidationMessage] = useState("");
     const [statusMessage, setStatusMessage] = useState("");
@@ -146,6 +159,7 @@ function App() {
             const uploadResult = await uploadVideoFile(
                 selectedFile.file,
                 interpolationFactor,
+                outputPlaybackMode,
             );
             const videoId = uploadResult?.video_id;
 
@@ -299,7 +313,7 @@ function App() {
                         </button>
                     </div>
 
-                    <div className="mt-4 grid gap-4 rounded-xl border border-slate-800 bg-slate-950 p-4 lg:grid-cols-[1fr_18rem_auto] lg:items-center">
+                    <div className="mt-4 grid gap-4 rounded-xl border border-slate-800 bg-slate-950 p-4 lg:grid-cols-[1fr_auto] lg:items-start">
                         <div>
                             <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
                                 Текущий файл
@@ -316,44 +330,6 @@ function App() {
                             </span>
                         </div>
 
-                        <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
-                            <label
-                                className="block text-xs font-medium uppercase tracking-[0.18em] text-slate-500"
-                                htmlFor="interpolation-factor"
-                            >
-                                Множитель интерполяции
-                            </label>
-                            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                <input
-                                    id="interpolation-factor"
-                                    type="range"
-                                    min={INTERPOLATION_FACTORS[0]}
-                                    max={
-                                        INTERPOLATION_FACTORS[
-                                            INTERPOLATION_FACTORS.length - 1
-                                        ]
-                                    }
-                                    step="1"
-                                    value={interpolationFactor}
-                                    onChange={(event) =>
-                                        setInterpolationFactor(
-                                            Number(event.target.value),
-                                        )
-                                    }
-                                    className="w-full accent-slate-100"
-                                    disabled={isSubmitting}
-                                />
-                                <span className="min-w-14 rounded-full border border-slate-700 px-4 py-2 text-center text-sm font-semibold text-white">
-                                    x{interpolationFactor}
-                                </span>
-                            </div>
-                            <div className="mt-2 flex gap-2 text-xs text-slate-500">
-                                {INTERPOLATION_FACTORS.map((factor) => (
-                                    <span key={factor}>x{factor}</span>
-                                ))}
-                            </div>
-                        </div>
-
                         <button
                             type="submit"
                             className="inline-flex items-center justify-center rounded-full bg-slate-100 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
@@ -361,6 +337,88 @@ function App() {
                         >
                             {isSubmitting ? "Обработка..." : "Отправить"}
                         </button>
+
+                        <div className="grid gap-4 lg:col-span-2 lg:grid-cols-2">
+                            <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
+                                <label
+                                    className="block text-xs font-medium uppercase tracking-[0.18em] text-slate-500"
+                                    htmlFor="interpolation-factor"
+                                >
+                                    Множитель интерполяции
+                                </label>
+                                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <input
+                                        id="interpolation-factor"
+                                        type="range"
+                                        min={INTERPOLATION_FACTORS[0]}
+                                        max={
+                                            INTERPOLATION_FACTORS[
+                                                INTERPOLATION_FACTORS.length - 1
+                                            ]
+                                        }
+                                        step="1"
+                                        value={interpolationFactor}
+                                        onChange={(event) =>
+                                            setInterpolationFactor(
+                                                Number(event.target.value),
+                                            )
+                                        }
+                                        className="w-full accent-slate-100"
+                                        disabled={isSubmitting}
+                                    />
+                                    <span className="min-w-14 rounded-full border border-slate-700 px-4 py-2 text-center text-sm font-semibold text-white">
+                                        x{interpolationFactor}
+                                    </span>
+                                </div>
+                                <div className="mt-2 flex gap-2 text-xs text-slate-500">
+                                    {INTERPOLATION_FACTORS.map((factor) => (
+                                        <span key={factor}>x{factor}</span>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <fieldset className="rounded-xl border border-slate-800 bg-slate-950 p-4">
+                                <legend className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
+                                    Режим проигрывания
+                                </legend>
+                                <div className="mt-3 grid grid-cols-2 overflow-hidden rounded-full border border-slate-700 bg-slate-900 p-1">
+                                    {PLAYBACK_MODES.map((mode) => {
+                                        const isSelected =
+                                            outputPlaybackMode === mode.value;
+
+                                        return (
+                                            <button
+                                                key={mode.value}
+                                                type="button"
+                                                className={`rounded-full px-3 py-2 text-sm font-semibold transition ${
+                                                    isSelected
+                                                        ? "bg-slate-100 text-slate-950"
+                                                        : "text-slate-300 hover:bg-slate-800"
+                                                }`}
+                                                onClick={() =>
+                                                    setOutputPlaybackMode(
+                                                        mode.value,
+                                                    )
+                                                }
+                                                disabled={isSubmitting}
+                                                aria-pressed={isSelected}
+                                            >
+                                                {mode.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <p className="mt-3 min-h-10 text-sm leading-5 text-slate-400">
+                                    {
+                                        PLAYBACK_MODES.find(
+                                            (mode) =>
+                                                mode.value ===
+                                                outputPlaybackMode,
+                                        )?.description
+                                    }
+                                </p>
+                            </fieldset>
+                        </div>
                     </div>
 
                     {validationMessage ? (

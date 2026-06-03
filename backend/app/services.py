@@ -185,11 +185,12 @@ def create_video(
 def create_redis_task(
     redis_client: Redis,
     video_id: int,
+    output_playback_mode: str = "real_time",
     timeout_seconds: int = 300
 ):
     try:
         queue = rq.Queue("interpolation_tasks", connection=redis_client)
-        queue.enqueue(process_video, video_id)
+        queue.enqueue(process_video, video_id, output_playback_mode)
     except Exception as exc:
         raise VideoServiceError("Failed to create processing task in Redis.") from exc
 

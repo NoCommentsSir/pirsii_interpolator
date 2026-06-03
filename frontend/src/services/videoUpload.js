@@ -5,102 +5,104 @@ function delay(ms) {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-export async function uploadVideoFile(file) {
+async function parseResponse(response) {
+    const text = await response.text();
+    if (!text) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(text);
+    } catch {
+        return text;
+    }
+}
+
+function errorMessageFromPayload(payload, fallback) {
+    if (!payload) {
+        return fallback;
+    }
+
+    if (typeof payload === "string") {
+        return payload;
+    }
+
+    if (typeof payload.detail === "string") {
+        return payload.detail;
+    }
+
+    if (Array.isArray(payload.detail)) {
+        return payload.detail
+            .map((item) => item?.msg || JSON.stringify(item))
+            .join("; ");
+    }
+
+    return fallback;
+}
+
+export async function uploadVideoFile(file, coef = 2) {
     const formData = new FormData();
     formData.append("video", file);
-    formData.append("coef", "2");
+    formData.append("coef", String(coef));
 
     const response = await fetch(API_URL, {
         method: "POST",
         body: formData,
     });
 
-    const text = await response.text();
-    let payload;
-    try {
-        payload = JSON.parse(text);
-    } catch {
-        payload = text;
-    }
+    const payload = await parseResponse(response);
 
     if (!response.ok) {
-        throw new Error(String(payload) || response.statusText);
-    }
-
-    return payload;
-}
-
-/**
- * insertVideo - POSTs a video file to the backend `/api/videos` endpoint
- * and returns the parsed JSON response (VideoResponse) or throws an Error
- * with the backend `detail` if present.
- */
-export async function insertVideo(file) {
-    const formData = new FormData();
-    formData.append("video", file);
-    formData.append("coef", "1");
-
-    const response = await fetch(API_URL, { method: "POST", body: formData });
-
-    // Try to parse JSON body when available
-    const contentType = response.headers.get("content-type") || "";
-    const isJson = contentType.includes("application/json");
-
-    let payload = null;
-    if (isJson) {
-        try {
-            payload = await response.json();
-        } catch (e) {
-            // ignore parse errors
-            payload = null;
-        }
-    } else {
-        payload = await response.text();
-    }
-
-    if (!response.ok) {
-        throw new Error(String(payload) || response.statusText);
+        throw new Error(errorMessageFromPayload(payload, response.statusText));
     }
 
     return payload;
 }
 
 export async function pollVideoJob({
-    jobId,
-    statusUrl,
-    maxAttempts = 40,
+    videoId,
+    maxAttempts = 80,
     intervalMs = DEFAULT_POLL_INTERVAL_MS,
+    onStatus,
 }) {
-    const endpoint = statusUrl || `${API_URL}/${jobId}`;
+    const endpoint = `${API_URL}/${videoId}`;
 
     for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         const response = await fetch(endpoint, {
             method: "GET",
         });
 
+        const payload = await parseResponse(response);
+
         if (!response.ok) {
             throw new Error(
-                response.statusText || "Не удалось получить статус обработки",
+                errorMessageFromPayload(
+                    payload,
+                    "Не удалось получить статус обработки",
+                ),
             );
         }
 
-        const contentType = response.headers.get("content-type") || "";
-        const payload = contentType.includes("application/json")
-            ? await response.json()
-            : { status: await response.text() };
+        const status = String(payload?.queue_status || "").toLowerCase();
+        onStatus?.(payload);
 
-        const status = String(
-            payload.status || payload.state || "",
-        ).toLowerCase();
-
-        if (status === "done" || status === "ready" || status === "completed") {
+        if (status === "completed") {
+            if (!payload.video_installing_uri) {
+                throw new Error(
+                    "Видео обработано, но ссылка на скачивание не пришла.",
+                );
+            }
             return payload;
         }
 
-        if (status === "error" || status === "failed") {
+        if (status === "failed") {
             throw new Error(
                 payload.message || payload.error || "Ошибка обработки видео",
             );
+        }
+
+        if (status !== "pending" && status !== "processing") {
+            throw new Error(`Неизвестный статус обработки: ${status || "-"}`);
         }
 
         await delay(intervalMs);

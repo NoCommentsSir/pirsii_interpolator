@@ -22,14 +22,14 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 REDIS_TOPIC = os.getenv("REDIS_TOPIC", "interpolation_tasks")
-BUCKET_NAME = os.getenv("MINIO_BUCKET_NAME", "video")
+BUCKET_NAME = os.getenv("MINIO_BUCKET_NAME", "videos")
 QUEUE_NAME = os.getenv("REDIS_QUEUE_NAME", "interpolation_tasks")
 q = rq.Queue(connection=redis_client)
 
-def processor(video_obj: InputVideos, minio_client) -> str:
+def processor(video_obj: InputVideos, minio_client) -> str | None:
     try:
         minio_uri = video_obj.staged_video_uri
-        minio_key = minio_uri.split("/", 1)[1]
+        bucket_name, minio_key = minio_uri.split("/", 1)
         video_name = Path(minio_key).name
         logger.info(f"Processing video ID {video_obj.video_id} with interpolation factor {video_obj.coef}")
         interpolation_factor = video_obj.coef
@@ -40,23 +40,26 @@ def processor(video_obj: InputVideos, minio_client) -> str:
             input_path = tmp_path / video_name
             output_path = tmp_path / f"{input_path.stem}_interpolated{input_path.suffix}"
 
-            with minio_client.get_object(BUCKET_NAME, minio_key) as input_file:
+            with minio_client.get_object(bucket_name, minio_key) as input_file:
                 with open(input_path, "wb") as f:
                     f.write(input_file.read())
 
             call_rife_inference(str(input_path), str(output_path), interpolation_factor)
 
+            if not output_path.exists() or output_path.stat().st_size <= 0:
+                raise RuntimeError(f"RIFE output file was not created: {output_path}")
+
             output_key = f"output/{output_path.name}"
             with open(output_path, "rb") as out_file:
                 minio_client.put_object(
-                    bucket_name=BUCKET_NAME,
+                    bucket_name=bucket_name,
                     object_name=output_key,
                     data=out_file,
                     length=os.path.getsize(output_path),
                     content_type="video/mp4",
                 )
 
-        return output_key
+        return f"{bucket_name}/{output_key}"
     except Exception as e:
         logger.exception("Error processing video ID %s", video_obj.video_id)
         return None
@@ -72,7 +75,7 @@ def process_video(video_id: int):
             result = processor(video_obj, minio_client)
             if result:
                 video_obj.processed_at = datetime.now(timezone.utc)
-                video_obj.output_video_uri = f"{BUCKET_NAME}/{result}"
+                video_obj.output_video_uri = result
                 video_obj.queue_status = "completed"
             else:
                 video_obj.queue_status = "failed"

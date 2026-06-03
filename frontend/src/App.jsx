@@ -3,20 +3,21 @@ import { pollVideoJob, uploadVideoFile } from "./services/videoUpload.js";
 
 const UPLOAD_LIMITS = {
     maxDurationSeconds: 15,
-    maxSizeBytes: 30 * 1024 * 1024,
+    maxSizeBytes: 10 * 1024 * 1024,
     maxLongSide: 1920,
     maxShortSide: 1080,
 };
+const INTERPOLATION_FACTORS = [2, 3, 4];
 
 function App() {
     const inputRef = useRef(null);
     const [selectedFile, setSelectedFile] = useState(null);
+    const [interpolationFactor, setInterpolationFactor] = useState(2);
     const [dragActive, setDragActive] = useState(false);
     const [validationMessage, setValidationMessage] = useState("");
     const [statusMessage, setStatusMessage] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [downloadUrl, setDownloadUrl] = useState("");
-    const [serverResponse, setServerResponse] = useState(null);
 
     useEffect(() => {
         return () => {
@@ -139,42 +140,46 @@ function App() {
         setIsSubmitting(true);
         setValidationMessage("");
         setDownloadUrl("");
+        setStatusMessage("Видео отправляется на обработку...");
 
         try {
-            const uploadResult = await uploadVideoFile(selectedFile.file);
-            setServerResponse(uploadResult);
-            console.log("Upload result:", uploadResult);
-
+            const uploadResult = await uploadVideoFile(
+                selectedFile.file,
+                interpolationFactor,
+            );
             const videoId = uploadResult?.video_id;
-            const queueStatus = uploadResult?.queue_status;
-            const stageVideoUri = uploadResult?.stage_video_uri;
-            const outputVideoUri = uploadResult?.output_video_uri;
-            const videoInstallingUri = uploadResult?.video_installing_uri;
 
-            if (videoInstallingUri == "None") {
-                setStatusMessage(
-                    "Видео принято. Обработка обычно занимает несколько минут.",
-                );
-                return;
-                // const jobResult = await pollVideoJob({
-                //     jobId,
-                //     statusUrl,
-                // });
-                // const finalDownloadUrl = jobResult?.downloadUrl || jobResult?.url;
-                // if (!finalDownloadUrl) {
-                //     throw new Error(
-                //         "Видео обработано, но ссылка на скачивание не пришла.",
-                //     );
-                // }
-                // setDownloadUrl(finalDownloadUrl);
-            } else {
-                setDownloadUrl(outputVideoUri);
-                setStatusMessage(
-                    "Видео уже обработано. Можно скачать готовый файл.",
-                );
-                return;
+            if (!videoId) {
+                throw new Error("Сервер не вернул идентификатор видео.");
             }
+
+            setStatusMessage("Видео принято. Ожидаем очередь обработки...");
+
+            const finalResult = await pollVideoJob({
+                videoId,
+                onStatus: (payload) => {
+                    const queueStatus = String(
+                        payload?.queue_status || "",
+                    ).toLowerCase();
+
+                    if (queueStatus === "pending") {
+                        setStatusMessage(
+                            "Видео принято. Ожидаем очередь обработки...",
+                        );
+                    }
+
+                    if (queueStatus === "processing") {
+                        setStatusMessage(
+                            "Видео обрабатывается. Это может занять несколько минут.",
+                        );
+                    }
+                },
+            });
+
+            setDownloadUrl(finalResult.video_installing_uri);
+            setStatusMessage("Видео обработано. Можно скачать готовый файл.");
         } catch (error) {
+            setStatusMessage("");
             setValidationMessage(
                 error instanceof Error
                     ? error.message
@@ -209,7 +214,7 @@ function App() {
             <section className="flex w-full flex-col gap-6">
                 <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 sm:p-8 lg:p-10">
                     <p className="mb-3 text-sm font-medium uppercase tracking-[0.18em] text-slate-400">
-                        ПИРСИИнтерполятор
+                        Yet another use(less/full) service
                     </p>
                     <h1 className="text-2xl font-semibold text-white sm:text-3xl">
                         Интерполяция кадров в видео в 2 раза быстрее
@@ -294,7 +299,7 @@ function App() {
                         </button>
                     </div>
 
-                    <div className="mt-4 flex flex-col gap-4 rounded-xl border border-slate-800 bg-slate-950 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="mt-4 grid gap-4 rounded-xl border border-slate-800 bg-slate-950 p-4 lg:grid-cols-[1fr_18rem_auto] lg:items-center">
                         <div>
                             <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
                                 Текущий файл
@@ -311,12 +316,50 @@ function App() {
                             </span>
                         </div>
 
+                        <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
+                            <label
+                                className="block text-xs font-medium uppercase tracking-[0.18em] text-slate-500"
+                                htmlFor="interpolation-factor"
+                            >
+                                Множитель интерполяции
+                            </label>
+                            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <input
+                                    id="interpolation-factor"
+                                    type="range"
+                                    min={INTERPOLATION_FACTORS[0]}
+                                    max={
+                                        INTERPOLATION_FACTORS[
+                                            INTERPOLATION_FACTORS.length - 1
+                                        ]
+                                    }
+                                    step="1"
+                                    value={interpolationFactor}
+                                    onChange={(event) =>
+                                        setInterpolationFactor(
+                                            Number(event.target.value),
+                                        )
+                                    }
+                                    className="w-full accent-slate-100"
+                                    disabled={isSubmitting}
+                                />
+                                <span className="min-w-14 rounded-full border border-slate-700 px-4 py-2 text-center text-sm font-semibold text-white">
+                                    x{interpolationFactor}
+                                </span>
+                            </div>
+                            <div className="mt-2 flex gap-2 text-xs text-slate-500">
+                                {INTERPOLATION_FACTORS.map((factor) => (
+                                    <span key={factor}>x{factor}</span>
+                                ))}
+                            </div>
+                        </div>
+
                         <button
                             type="submit"
                             className="inline-flex items-center justify-center rounded-full bg-slate-100 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
                             disabled={!selectedFile || isSubmitting}
                         >
-                            {isSubmitting ? "Отправка..." : "Отправить"}
+                            {isSubmitting ? "Обработка..." : "Отправить"}
                         </button>
                     </div>
 
@@ -330,39 +373,6 @@ function App() {
                         <p className="mt-4 rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-slate-300">
                             {statusMessage}
                         </p>
-                    ) : null}
-
-                    {serverResponse ? (
-                        <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-slate-200">
-                            <p className="font-medium text-slate-100">
-                                Server response:
-                            </p>
-                            <pre className="whitespace-pre-wrap text-xs text-slate-300 mt-2">
-                                {JSON.stringify(serverResponse, null, 2)}
-                            </pre>
-                            <div className="mt-2 text-xs text-slate-400">
-                                <div>
-                                    video_id:{" "}
-                                    {String(serverResponse.video_id ?? "-")}
-                                </div>
-                                <div>
-                                    staged_video_uri:{" "}
-                                    {serverResponse.staged_video_uri ?? "-"}
-                                </div>
-                                <div>
-                                    validation_status:{" "}
-                                    {serverResponse.validation_status ?? "-"}
-                                </div>
-                                <div>
-                                    queue_status:{" "}
-                                    {serverResponse.queue_status ?? "-"}
-                                </div>
-                                <div>
-                                    output_video_uri:{" "}
-                                    {serverResponse.output_video_uri ?? "-"}
-                                </div>
-                            </div>
-                        </div>
                     ) : null}
 
                     {downloadUrl ? (

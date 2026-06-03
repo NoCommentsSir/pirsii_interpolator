@@ -82,7 +82,7 @@ services:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - prom_data:/prometheus
     healthcheck: 
-      test: ["CMD", "curl", "-f", "http://localhost:9090/-/ready"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/ready"]
       interval: 30s
       timeout: 20s
       retries: 3
@@ -94,7 +94,7 @@ services:
     ports:
       - ${GRAFANA_PORT:-3000}:3000
     volumes:
-      - ./grafana:/etc/grafana/datasources
+      - ./grafana/datasource.yaml:/etc/grafana/provisioning/datasources/datasource.yaml:ro
     env_file:
       - .env
     # environment:

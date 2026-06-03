@@ -2,6 +2,8 @@ services:
   redis-db:
     image: redis:7-alpine
     restart: unless-stopped
+    env_file:
+      - .env
     volumes:
       - redis_data:/data
     command: >
@@ -107,6 +109,8 @@ services:
       - prometheus
     expose:
       - "3000"
+    ports:
+      - "127.0.0.1:3000:3000"
 
   caddy:
     image: caddy:2-alpine

@@ -63,6 +63,7 @@ def _job_directory(video_id: int):
 def processor(
     video_obj: InputVideos,
     minio_client,
+    db: Session,
     output_playback_mode: str = "real_time",
 ) -> str | None:
     try:
@@ -92,7 +93,12 @@ def processor(
                 with open(input_path, "wb") as f:
                     f.write(input_file.read())
 
-            response = call_rife_inference(str(input_path), str(output_path), interpolation_factor)
+            response = call_rife_inference(
+                str(input_path), 
+                str(output_path), 
+                interpolation_factor,
+                output_playback_mode
+            )
             db.add(OnlineMetrics(
                 video_id=video_obj.video_id,
                 model_version='RIFE_v1',
@@ -134,8 +140,7 @@ def process_video(video_id: int, output_playback_mode: str = "real_time"):
         if video_obj and video_obj.queue_status == "pending":
             video_obj.queue_status = "processing"
             db.commit()
-            result = processor(video_obj, minio_client, output_playback_mode)
-            result = processor(video_obj, minio_client, output_playback_mode)
+            result = processor(video_obj, minio_client, db, output_playback_mode)
             if result:
                 video_obj.processed_at = datetime.now(timezone.utc)
                 video_obj.output_video_uri = result

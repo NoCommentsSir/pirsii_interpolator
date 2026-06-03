@@ -61,7 +61,11 @@ def call_rife_inference(
         "output_playback_mode": output_playback_mode,
     }
     logger.info(f"Calling RIFE BentoML API with parameters: {params}")
-    response = requests.post(url, json=params, timeout=RIFE_REQUEST_TIMEOUT)
+    response = requests.post(
+        url,
+        json={"request": params},
+        timeout=RIFE_REQUEST_TIMEOUT,
+    )
 
     if response.status_code != 200:
         raise RuntimeError(

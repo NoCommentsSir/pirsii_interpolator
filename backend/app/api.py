@@ -85,7 +85,7 @@ def _to_video_response(video, minio_client: Minio) -> VideoResponse:
 )
 def insert_video(
     video: Annotated[UploadFile, File(...)],
-    coef: Annotated[int, Form(..., gt=0.0, description="Коэффициент интерполяции, целое число больше 0")],
+    coef: Annotated[int, Form(..., gt=0.0, description="Коэффициент интерполяции, целое число больше 0")] = 2,
     db: Session = Depends(get_db),
     minio: Minio = Depends(get_minio_client),
     redis_client = Depends(get_redis_client)

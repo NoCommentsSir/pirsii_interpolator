@@ -1,7 +1,7 @@
-import io
 import os
 import tempfile
 import logging
+from pathlib import Path
 
 from dotenv import load_dotenv
 from db.database import redis_client, SessionLocal, get_minio_client
@@ -30,34 +30,35 @@ def processor(video_obj: InputVideos, minio_client) -> str:
     try:
         minio_uri = video_obj.staged_video_uri
         minio_key = minio_uri.split("/", 1)[1]
-        video_name = minio_key.split("/", 1)[1]
+        video_name = Path(minio_key).name
         logger.info(f"Processing video ID {video_obj.video_id} with interpolation factor {video_obj.coef}")
         interpolation_factor = video_obj.coef
-        input_file = minio_client.get_object(BUCKET_NAME, minio_key)
-        
+
         logger.info(f"Video ID {video_obj.video_id} read from MinIO and will be sent to BentoML")
         with tempfile.TemporaryDirectory() as tmp_dir:
-            input_path = os.path.join(tmp_dir, video_name)
-            output_path = os.path.join(tmp_dir, f"{video_name}.mp4")
+            tmp_path = Path(tmp_dir)
+            input_path = tmp_path / video_name
+            output_path = tmp_path / f"{input_path.stem}_interpolated{input_path.suffix}"
 
-            with open(input_path, "wb") as f:
-                f.write(input_file.read())
+            with minio_client.get_object(BUCKET_NAME, minio_key) as input_file:
+                with open(input_path, "wb") as f:
+                    f.write(input_file.read())
 
-            call_rife_inference(input_path, output_path, interpolation_factor)
+            call_rife_inference(str(input_path), str(output_path), interpolation_factor)
 
+            output_key = f"output/{output_path.name}"
             with open(output_path, "rb") as out_file:
-                result_key = f"output/{video_name}.mp4"
                 minio_client.put_object(
                     bucket_name=BUCKET_NAME,
-                    object_name=result_key,
+                    object_name=output_key,
                     data=out_file,
                     length=os.path.getsize(output_path),
                     content_type="video/mp4",
                 )
 
-        return result_key
+        return output_key
     except Exception as e:
-        print(f"Error processing video ID {video_obj.video_id}: {str(e)}")
+        logger.exception("Error processing video ID %s", video_obj.video_id)
         return None
     
 def process_video(video_id: int):

@@ -7,6 +7,7 @@ import json
 import tempfile
 from pathlib import Path
 from dataclasses import dataclass
+import uuid
 from moviepy import VideoFileClip
 from minio import Minio
 from sqlalchemy.orm import Session
@@ -136,7 +137,8 @@ def create_video(
     name: str,
     coef: int
 ) -> InputVideos:
-    parsed_video = _parse_video_bytes(file_bytes, name)
+    minio_name = uuid.uuid4().hex + Path(name).suffix
+    parsed_video = _parse_video_bytes(file_bytes, minio_name)
     ensure_bucket_exists(minio, bucket_name)
     minio_key = f"input/{parsed_video.name}"
 

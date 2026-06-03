@@ -40,10 +40,15 @@ function errorMessageFromPayload(payload, fallback) {
     return fallback;
 }
 
-export async function uploadVideoFile(file, coef = 2) {
+export async function uploadVideoFile(
+    file,
+    coef = 2,
+    outputPlaybackMode = "real_time",
+) {
     const formData = new FormData();
     formData.append("video", file);
     formData.append("coef", String(coef));
+    formData.append("output_playback_mode", outputPlaybackMode);
 
     const response = await fetch(API_URL, {
         method: "POST",

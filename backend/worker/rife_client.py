@@ -16,10 +16,11 @@ def _env_flag(name: str) -> bool:
     return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _run_mock_inference(input_path: str, output_path: str) -> None:
+def _run_mock_inference(input_path: str, output_path: str, output_playback_mode: str) -> None:
     logger.info(
-        "Running local mock RIFE inference with delay %.1f seconds",
+        "Running local mock RIFE inference with delay %.1f seconds and playback mode %s",
         RIFE_MOCK_DELAY_SECONDS,
+        output_playback_mode,
     )
 
     if _env_flag("RIFE_MOCK_SHOULD_FAIL"):
@@ -36,12 +37,17 @@ def _run_mock_inference(input_path: str, output_path: str) -> None:
         raise RuntimeError("Mock RIFE inference did not create a valid output file")
 
 
-def call_rife_inference(input_path: str, output_path: str, coef: int) -> None:
+def call_rife_inference(
+    input_path: str,
+    output_path: str,
+    coef: int,
+    output_playback_mode: str = "real_time",
+) -> None:
     if not RIFE_SERVICE_URL:
         raise RuntimeError("RIFE_SERVICE_URL is not configured")
 
     if RIFE_SERVICE_URL.startswith("mock://"):
-        _run_mock_inference(input_path, output_path)
+        _run_mock_inference(input_path, output_path, output_playback_mode)
         return
 
     url = f"{RIFE_SERVICE_URL.rstrip('/')}{RIFE_API_PATH}"
@@ -50,7 +56,8 @@ def call_rife_inference(input_path: str, output_path: str, coef: int) -> None:
     params = {
         "input_path": input_path,
         "output_path": output_path,
-        "interpolation_factor": coef
+        "interpolation_factor": coef,
+        "output_playback_mode": output_playback_mode,
     }
     logger.info(f"Calling RIFE BentoML API with parameters: {params}")
     response = requests.post(url, json=params, timeout=RIFE_REQUEST_TIMEOUT)

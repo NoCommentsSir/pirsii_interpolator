@@ -26,12 +26,21 @@ BUCKET_NAME = os.getenv("MINIO_BUCKET_NAME", "videos")
 QUEUE_NAME = os.getenv("REDIS_QUEUE_NAME", "interpolation_tasks")
 q = rq.Queue(connection=redis_client)
 
-def processor(video_obj: InputVideos, minio_client) -> str | None:
+def processor(
+    video_obj: InputVideos,
+    minio_client,
+    output_playback_mode: str = "real_time",
+) -> str | None:
     try:
         minio_uri = video_obj.staged_video_uri
         bucket_name, minio_key = minio_uri.split("/", 1)
         video_name = Path(minio_key).name
-        logger.info(f"Processing video ID {video_obj.video_id} with interpolation factor {video_obj.coef}")
+        logger.info(
+            "Processing video ID %s with interpolation factor %s and playback mode %s",
+            video_obj.video_id,
+            video_obj.coef,
+            output_playback_mode,
+        )
         interpolation_factor = video_obj.coef
 
         logger.info(f"Video ID {video_obj.video_id} read from MinIO and will be sent to BentoML")
@@ -44,7 +53,12 @@ def processor(video_obj: InputVideos, minio_client) -> str | None:
                 with open(input_path, "wb") as f:
                     f.write(input_file.read())
 
-            call_rife_inference(str(input_path), str(output_path), interpolation_factor)
+            call_rife_inference(
+                str(input_path),
+                str(output_path),
+                interpolation_factor,
+                output_playback_mode,
+            )
 
             if not output_path.exists() or output_path.stat().st_size <= 0:
                 raise RuntimeError(f"RIFE output file was not created: {output_path}")
@@ -64,7 +78,7 @@ def processor(video_obj: InputVideos, minio_client) -> str | None:
         logger.exception("Error processing video ID %s", video_obj.video_id)
         return None
     
-def process_video(video_id: int):
+def process_video(video_id: int, output_playback_mode: str = "real_time"):
     minio_client = get_minio_client()
     db = SessionLocal()
     try:
@@ -72,7 +86,7 @@ def process_video(video_id: int):
         if video_obj and video_obj.queue_status == "pending":
             video_obj.queue_status = "processing"
             db.commit()
-            result = processor(video_obj, minio_client)
+            result = processor(video_obj, minio_client, output_playback_mode)
             if result:
                 video_obj.processed_at = datetime.now(timezone.utc)
                 video_obj.output_video_uri = result

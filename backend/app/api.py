@@ -36,6 +36,7 @@ MINIO_PUBLIC_ENDPOINT = os.getenv("MINIO_PUBLIC_ENDPOINT", f"localhost:{os.geten
 MINIO_PUBLIC_SECURE = os.getenv("MINIO_PUBLIC_SECURE", "false").strip().lower() in {"1", "true", "yes", "on"}
 MINIO_REGION = os.getenv("MINIO_REGION", "us-east-1")
 ALLOWED_COEFS = {2, 3, 4}
+ALLOWED_OUTPUT_PLAYBACK_MODES = {"real_time", "slow_motion"}
 
 def _load_cors_origins() -> list[str]:
     origins = os.getenv("CORS_ALLOWED_ORIGINS")
@@ -120,6 +121,10 @@ def _to_video_response(video, minio_client: Minio) -> VideoResponse:
 def insert_video(
     video: Annotated[UploadFile, File(...)],
     coef: Annotated[int, Form(description="Interpolation coefficient. Allowed values: 2, 3, 4.")] = 2,
+    output_playback_mode: Annotated[
+        str,
+        Form(description="Output playback mode. Allowed values: real_time, slow_motion."),
+    ] = "real_time",
     db: Session = Depends(get_db),
     minio: Minio = Depends(get_minio_client),
     redis_client = Depends(get_redis_client)
@@ -129,6 +134,12 @@ def insert_video(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Interpolation coefficient must be one of: 2, 3, 4.",
+        )
+
+    if output_playback_mode not in ALLOWED_OUTPUT_PLAYBACK_MODES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Output playback mode must be one of: real_time, slow_motion.",
         )
 
     file_bytes = _read_upload_bytes(video)
@@ -156,7 +167,7 @@ def insert_video(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),
         ) from exc
-    create_redis_task(redis_client, video_obj.video_id)
+    create_redis_task(redis_client, video_obj.video_id, output_playback_mode)
     return _to_video_response(video_obj, minio)
 
 @api.get(

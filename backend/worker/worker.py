@@ -27,15 +27,7 @@ BUCKET_NAME = os.getenv("MINIO_BUCKET_NAME", "videos")
 QUEUE_NAME = os.getenv("REDIS_QUEUE_NAME", "interpolation_tasks")
 q = rq.Queue(connection=redis_client)
 
-<<<<<<< HEAD
-def processor(video_obj: InputVideos, minio_client: Minio, db: Session) -> str | None:
-=======
-def processor(
-    video_obj: InputVideos,
-    minio_client,
-    output_playback_mode: str = "real_time",
-) -> str | None:
->>>>>>> 15a58423c4fe89027f41e056542a65151eb59d92
+def processor(video_obj: InputVideos, minio_client: Minio, db: Session, output_playback_mode: str = "real_time") -> str | None:
     try:
         minio_uri = video_obj.staged_video_uri
         bucket_name, minio_key = minio_uri.split("/", 1)
@@ -64,7 +56,6 @@ def processor(
                 with open(input_path, "wb") as f:
                     f.write(input_file.read())
 
-<<<<<<< HEAD
             response = call_rife_inference(str(input_path), str(output_path), interpolation_factor)
             db.add(OnlineMetrics(
                 video_id=video_obj.video_id,
@@ -80,15 +71,6 @@ def processor(
                 created_at=datetime.now(timezone.utc)
             ))
             db.commit() 
-
-=======
-            call_rife_inference(
-                str(input_path),
-                str(output_path),
-                interpolation_factor,
-                output_playback_mode,
-            )
->>>>>>> 15a58423c4fe89027f41e056542a65151eb59d92
 
             if not output_path.exists() or output_path.stat().st_size <= 0:
                 raise RuntimeError(f"RIFE output file was not created: {output_path}")
@@ -108,7 +90,6 @@ def processor(
         logger.exception("Error processing video ID %s", video_obj.video_id)
         return None
     
-def process_video(video_id: int, output_playback_mode: str = "real_time"):
 def process_video(video_id: int, output_playback_mode: str = "real_time"):
     minio_client = get_minio_client()
     db = SessionLocal()

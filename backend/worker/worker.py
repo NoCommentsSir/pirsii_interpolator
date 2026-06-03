@@ -1,6 +1,9 @@
 import os
+import shutil
 import tempfile
 import logging
+import uuid
+from contextlib import contextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -25,9 +28,43 @@ load_dotenv()
 REDIS_TOPIC = os.getenv("REDIS_TOPIC", "interpolation_tasks")
 BUCKET_NAME = os.getenv("MINIO_BUCKET_NAME", "videos")
 QUEUE_NAME = os.getenv("REDIS_QUEUE_NAME", "interpolation_tasks")
+RIFE_SHARED_DIR = os.getenv("RIFE_SHARED_DIR", "").strip()
 q = rq.Queue(connection=redis_client)
 
-def processor(video_obj: InputVideos, minio_client: Minio, db: Session, output_playback_mode: str = "real_time") -> str | None:
+
+def _env_flag(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+@contextmanager
+def _job_directory(video_id: int):
+    if not RIFE_SHARED_DIR:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            yield Path(tmp_dir)
+        return
+
+    shared_root = Path(RIFE_SHARED_DIR).expanduser()
+    if not shared_root.is_absolute():
+        shared_root = shared_root.resolve()
+
+    job_dir = shared_root / f"job_{video_id}_{uuid.uuid4().hex}"
+    job_dir.mkdir(parents=True, exist_ok=False)
+    logger.info("Using RIFE shared job directory for video ID %s: %s", video_id, job_dir)
+
+    try:
+        yield job_dir
+    finally:
+        if _env_flag("RIFE_KEEP_JOB_DIR"):
+            logger.info("Preserving RIFE job directory for video ID %s: %s", video_id, job_dir)
+        else:
+            shutil.rmtree(job_dir, ignore_errors=True)
+
+
+def processor(
+    video_obj: InputVideos,
+    minio_client,
+    output_playback_mode: str = "real_time",
+) -> str | None:
     try:
         minio_uri = video_obj.staged_video_uri
         bucket_name, minio_key = minio_uri.split("/", 1)
@@ -47,10 +84,9 @@ def processor(video_obj: InputVideos, minio_client: Minio, db: Session, output_p
         interpolation_factor = video_obj.coef
 
         logger.info(f"Video ID {video_obj.video_id} read from MinIO and will be sent to BentoML")
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            tmp_path = Path(tmp_dir)
-            input_path = tmp_path / video_name
-            output_path = tmp_path / f"{input_path.stem}_interpolated{input_path.suffix}"
+        with _job_directory(video_obj.video_id) as work_dir:
+            input_path = work_dir / video_name
+            output_path = work_dir / f"{input_path.stem}_interpolated{input_path.suffix}"
 
             with minio_client.get_object(bucket_name, minio_key) as input_file:
                 with open(input_path, "wb") as f:
@@ -86,7 +122,7 @@ def processor(video_obj: InputVideos, minio_client: Minio, db: Session, output_p
                 )
 
         return f"{bucket_name}/{output_key}"
-    except Exception as e:
+    except Exception:
         logger.exception("Error processing video ID %s", video_obj.video_id)
         return None
     

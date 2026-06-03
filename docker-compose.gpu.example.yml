@@ -1,0 +1,69 @@
+# Example generated for one GPU. Use this file for review/reference only.
+#
+# Generate the server-specific file from pirsii_interpolator/:
+#   python3 tools/generate_gpu_compose.py --gpu-ids 0 --output docker-compose.gpu.generated.yml
+#
+# For more GPUs:
+#   python3 tools/generate_gpu_compose.py --gpu-ids 0,1 --output docker-compose.gpu.generated.yml
+#   python3 tools/generate_gpu_compose.py --gpu-ids 0,1,2,3 --output docker-compose.gpu.generated.yml
+
+services:
+  worker-gpu0:
+    build:
+      context: .
+      dockerfile: backend/worker/Dockerfile
+    env_file:
+      - .env
+    restart: unless-stopped
+    depends_on:
+      redis-db:
+        condition: service_healthy
+      pg-db:
+        condition: service_healthy
+      minio-db:
+        condition: service_healthy
+      rife-gpu0:
+        condition: service_started
+    environment:
+      RIFE_SERVICE_URL: http://rife-gpu0:3000
+      RIFE_SHARED_DIR: /shared/rife
+      RIFE_API_PATH: ${RIFE_API_PATH:-/interpolate_video}
+      RIFE_REQUEST_TIMEOUT: ${RIFE_REQUEST_TIMEOUT:-1800}
+    volumes:
+      - rife_gpu0_shared:/shared/rife
+    command: ["python", "-m", "backend.worker.worker"]
+
+  rife-gpu0:
+    build:
+      context: ../video_interpolation_arch
+      dockerfile: services/practical_rife_bentoml/Dockerfile
+    restart: unless-stopped
+    environment:
+      CUDA_VISIBLE_DEVICES: "0"
+      NVIDIA_VISIBLE_DEVICES: "0"
+      NVIDIA_DRIVER_CAPABILITIES: ${NVIDIA_DRIVER_CAPABILITIES:-compute,utility,video}
+      MODEL_WEIGHTS_ROOT: ${MODEL_WEIGHTS_ROOT:-/app/model_weights}
+      MODEL_REPOS_ROOT: ${MODEL_REPOS_ROOT:-/app/model_repos}
+      DATASET_ROOT: ${DATASET_ROOT:-/app/datasets}
+      RIFE_SHARED_DIR: /shared/rife
+      RIFE_DEVICE: ${RIFE_DEVICE:-cuda}
+      RIFE_CODEC: ${RIFE_CODEC:-h264_nvenc}
+      BENTOML_HOST: ${BENTOML_HOST:-0.0.0.0}
+      BENTOML_PORT: "${BENTOML_PORT:-3000}"
+    volumes:
+      - rife_gpu0_shared:/shared/rife
+      - ../video_interpolation_arch/model_weights:/app/model_weights:ro
+      - ../video_interpolation_arch/model_repos:/app/model_repos:ro
+      - ../video_interpolation_arch/configs:/app/configs:ro
+    expose:
+      - "3000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["0"]
+              capabilities: [gpu]
+
+volumes:
+  rife_gpu0_shared:

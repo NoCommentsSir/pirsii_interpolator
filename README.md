@@ -2,6 +2,8 @@
 
 Подробная локальная отладка, mock RIFE режим и ручные smoke-тесты описаны в [`docs/local_debugging.md`](docs/local_debugging.md).
 
+Серверный source-build deploy с соседним `video_interpolation_arch/`, Caddy и GPU worker/RIFE compose описан в [`docs/server_deployment.md`](docs/server_deployment.md).
+
 ### 🚀 Запуск
 
 Пересборка и запуск контейнеров (нужна при изменениях в Dockerfile или зависимостях):

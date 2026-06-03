@@ -237,6 +237,9 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Server deployment generated overlay
+docker-compose.gpu.generated.yml
+
 # pytype static type analyzer
 .pytype/
 

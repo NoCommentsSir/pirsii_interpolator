@@ -103,13 +103,9 @@ def processor(
                 video_id=video_obj.video_id,
                 model_version='RIFE_v1',
                 interpolation_factor=response.get("interpolation_factor", interpolation_factor),
-                pairs_processed=response.get("pairs_processed", None),
-                frames_wrtitten=response.get("frames_wrtitten", None),
+                duration_seconds=response.get("duration_seconds", None),
                 clip_score_psnr=response.get("psnr_mean", None),
                 clip_score_ssim=response.get("ssim_mean", None),
-                quality_frames_wrtitten=response.get("quality_frames_wrtitten", None),
-                bad_triplet_count=response.get("bad_triplet_count", None),
-                is_bad_request=response.get("quality_error", None),
                 created_at=datetime.now(timezone.utc)
             ))
             db.commit() 

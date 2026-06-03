@@ -28,13 +28,9 @@ CREATE TABLE IF NOT EXISTS  video_interpolation.online_metrics(
     video_id INT NOT NULL,
     model_version VARCHAR NOT NULL,
     interpolation_factor INT NOT NULL,
-    pairs_processed INT NULL,
-    frames_wrtitten INT NULL,
+    duration_seconds FLOAT NULL,
     clip_score_psnr FLOAT NULL,
     clip_score_ssim FLOAT NULL,
-    quality_frames_wrtitten INT NULL,
-    bad_triplet_count INT NULL,
-    is_bad_request BOOLEAN NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
 
     FOREIGN KEY (video_id) REFERENCES video_interpolation.input_videos(video_id) ON DELETE CASCADE

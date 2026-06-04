@@ -2,13 +2,15 @@ apiVersion: 1
 
 datasources:
   - name: Prometheus
+    uid: prometheus
     type: prometheus
     access: proxy
     url: http://prometheus:9090
-    editable: true
     isDefault: true
+    editable: true
 
-  - name: Postgres
+  - name: Pirsii PostgreSQL
+    uid: pirsii-postgres
     type: postgres
     access: proxy
     url: pg-db:5432
@@ -20,4 +22,3 @@ datasources:
       sslmode: disable
       postgresVersion: 1700
     editable: true
-    isDefault: false

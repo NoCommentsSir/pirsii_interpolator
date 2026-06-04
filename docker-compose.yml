@@ -94,7 +94,9 @@ services:
     ports:
       - ${GRAFANA_PORT:-3000}:3000
     volumes:
-      - ./grafana/datasource.yaml:/etc/grafana/provisioning/datasources/datasource.yaml:ro
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
     env_file:
       - .env
     # environment:
@@ -145,3 +147,4 @@ volumes:
   minio_data:
   redis_data:
   prom_data:
+  grafana_data:

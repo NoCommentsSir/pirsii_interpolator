@@ -6,6 +6,10 @@
 # For more GPUs:
 #   python3 tools/generate_gpu_compose.py --gpu-ids 0,1 --output docker-compose.gpu.generated.yml
 #   python3 tools/generate_gpu_compose.py --gpu-ids 0,1,2,3 --output docker-compose.gpu.generated.yml
+#
+# NVIDIA_VISIBLE_DEVICES and device_ids select the host GPU. CUDA_VISIBLE_DEVICES
+# stays "0" because the selected host GPU is remapped to CUDA ordinal 0 inside
+# each isolated RIFE container.
 
 services:
   worker-gpu0:

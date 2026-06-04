@@ -4,6 +4,8 @@
 
 Серверный source-build deploy с соседним `video_interpolation_arch/`, Caddy и GPU worker/RIFE compose описан в [`docs/server_deployment.md`](docs/server_deployment.md).
 
+Provisioned Grafana dashboards, datasource setup, and observability checks are described in [`docs/grafana_dashboard.md`](docs/grafana_dashboard.md).
+
 ### 🚀 Запуск
 
 Пересборка и запуск контейнеров (нужна при изменениях в Dockerfile или зависимостях):
